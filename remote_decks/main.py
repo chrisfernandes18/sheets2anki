@@ -1,54 +1,68 @@
 from aqt import mw
-from aqt.utils import showInfo, qconnect
-from aqt.qt import QAction, QMenu, QInputDialog, QLineEdit, QKeySequence
+from anki.collection import Collection
+from aqt.utils import showInfo
+from aqt.qt import QInputDialog, QLineEdit
+
+from .models.remote_deck import RemoteDeck
 
 try:
     echo_mode_normal = QLineEdit.EchoMode.Normal
 except AttributeError:
     echo_mode_normal = QLineEdit.Normal
 
-import sys
-import csv
-import urllib.request
+from .parse_remote_deck import get_remote_deck
 
-from .parseRemoteDeck import getRemoteDeck
-
-def syncDecks():
+def sync_decks():
+    """Function to sync remote decks."""
     col = mw.col
     config = mw.addonManager.getConfig(__name__)
     if not config:
         config = {"remote-decks": {}}
 
-    for deckKey in config["remote-decks"].keys():
+    for deck_key in config["remote-decks"].keys():
         try:
-            currentRemoteInfo = config["remote-decks"][deckKey]
-            deckName = currentRemoteInfo["deckName"]
-            remoteDeck = getRemoteDeck(currentRemoteInfo["url"])
-            remoteDeck.deckName = deckName
-            deck_id = get_or_create_deck(col, deckName)
-            create_or_update_notes(col, remoteDeck, deck_id)
+            current_remote_info = config["remote-decks"][deck_key]
+            deck_name = current_remote_info["deck_name"]
+            remote_deck = get_remote_deck(current_remote_info["url"])
+            remote_deck.deck_name = deck_name
+            deck_id = get_or_create_deck(col, deck_name)
+            create_or_update_notes(col, remote_deck, deck_id)
         except Exception as e:
-            deckMessage = f"\nThe following deck failed to sync: {deckName}"
-            showInfo(str(e) + deckMessage)
+            deck_message = f"\nThe following deck failed to sync: {deck_name}"
+            showInfo(str(e) + deck_message)
             raise
 
     showInfo("Synchronization complete")
 
-def get_or_create_deck(col, deckName):
-    deck = col.decks.by_name(deckName)
+def get_or_create_deck(col: Collection, deck_name: str) -> int:
+    """Get or create a deck by name and return its ID.
+    Args:
+        col (Collection): The Anki collection.
+        deck_name (str): The name of the deck.
+    Returns:
+        int: The ID of the deck.
+    """
+    deck = col.decks.by_name(deck_name)
     if deck is None:
-        deck_id = col.decks.id(deckName)
+        deck_id = col.decks.id(deck_name)
     else:
         deck_id = deck["id"]
     return deck_id
 
-def create_or_update_notes(col, remoteDeck, deck_id):
+def create_or_update_notes(col: Collection, remote_deck: RemoteDeck, deck_id: int) -> None:
+    """Create or update notes in the Anki collection based on the remote deck.
+    Args:
+        col (Collection): The Anki collection.
+        remote_deck (RemoteDeck): The remote deck containing questions and answers.
+        deck_id (int): The ID of the deck where notes will be added or updated.
+    """
+
     # Dictionaries for existing notes
     existing_notes = {}
     existing_note_ids = {}
 
     # Fetch existing notes in the deck
-    for nid in col.find_notes(f'deck:"{remoteDeck.deckName}"'):
+    for nid in col.find_notes(f'deck:"{remote_deck.deck_name}"'):
         note = col.get_note(nid)
         # Determine the key based on available fields
         if "Text" in note:
@@ -63,42 +77,12 @@ def create_or_update_notes(col, remoteDeck, deck_id):
     # Set to keep track of keys from Google Sheets
     gs_keys = set()
 
-    for question in remoteDeck.questions:
+    for question in remote_deck.questions:
         card_type = question['type']
         fields = question['fields']
         tags = question.get('tags', [])
 
-        if card_type == 'Cloze':
-            key = fields['Text']
-            gs_keys.add(key)
-            extra = fields.get('Extra', '')
-
-            if key in existing_notes:
-                # Update existing note
-                note = existing_notes[key]
-                note["Text"] = key
-                note["Extra"] = extra
-                note.tags = tags
-                note.flush()
-            else:
-                # Create new note
-                model_name = "Cloze"
-                model = col.models.by_name(model_name)
-                if model is None:
-                    showInfo("The 'Cloze' model does not exist. Please create a Cloze-type model in Anki.")
-                    continue
-
-                col.models.set_current(model)
-                model['did'] = deck_id
-                col.models.save(model)
-
-                note = col.new_note(model)
-                note["Text"] = key
-                note["Extra"] = extra
-                note.tags = tags
-                col.add_note(note, deck_id)
-
-        elif card_type == 'Basic':
+        if card_type == 'Basic':
             key = fields['Front']
             gs_keys.add(key)
             back = fields.get('Back', '')
@@ -143,20 +127,40 @@ def create_or_update_notes(col, remoteDeck, deck_id):
     # Save changes
     col.save()
 
-def addNewDeck():
-    url, okPressed = QInputDialog.getText(
+def add_new_deck() -> None:
+    """Function to add a new remote deck."""
+    url, ok_pressed = QInputDialog.getText(
         mw, "Add New Remote Deck", "URL of published CSV:", echo_mode_normal, ""
     )
-    if not okPressed or not url.strip():
+    if not ok_pressed or not url.strip():
         return
 
     url = url.strip()
 
-    deckName, okPressed = QInputDialog.getText(
+    deck_name, ok_pressed = QInputDialog.getText(
         mw, "Deck Name", "Enter the name of the deck:", echo_mode_normal, ""
     )
-    if not okPressed or not deckName.strip():
-        deckName = "Deck from CSV"
+    if not ok_pressed or not deck_name.strip():
+        deck_name = "Deck from CSV"
+    names_and_ids = mw.col.models.all_names_and_ids()
+
+    note_type_name_to_id = {item.name: item.id for item in names_and_ids}
+    note_type_names = list(note_type_name_to_id.keys())
+
+    showInfo(f"note_type_name_to_id: {note_type_name_to_id}")
+
+    note_type_name, ok_pressed = QInputDialog.getItem(
+        mw,
+        "Select a Note Type to map the deck to",
+        "Select a note type:",
+        note_type_names,
+        0,
+        False
+    )
+
+    if not ok_pressed or not note_type_name.strip():
+        note_type_name = "Basic"
+    note_type_fields = [field['name'] for field in mw.col.models.get(note_type_name_to_id[note_type_name])['flds']]
 
     if "output=csv" not in url:
         showInfo("The provided URL does not appear to be a published CSV from Google Sheets.")
@@ -171,46 +175,48 @@ def addNewDeck():
         return
 
     try:
-        deck = getRemoteDeck(url)
-        deck.deckName = deckName
+        deck = get_remote_deck(url, note_type_fields)
+        deck.deck_name = deck_name
     except Exception as e:
         showInfo(f"Error fetching the remote deck:\n{e}")
         return
 
-    config["remote-decks"][url] = {"url": url, "deckName": deckName}
+    config["remote-decks"][url] = {"url": url, "deck_name": deck_name}
     mw.addonManager.writeConfig(__name__, config)
-    syncDecks()
+    sync_decks()
 
-def removeRemoteDeck():
+def remove_remote_deck() -> None:
+    """Function to remove a remote deck."""
+
     # Get the add-on configuration
     config = mw.addonManager.getConfig(__name__)
     if not config:
         config = {"remote-decks": {}}
 
-    remoteDecks = config["remote-decks"]
+    remote_decks = config["remote-decks"]
 
     # Get all deck names
-    deckNames = [remoteDecks[key]["deckName"] for key in remoteDecks]
+    deck_names = [remote_decks[key]["deck_name"] for key in remote_decks]
 
-    if len(deckNames) == 0:
+    if len(deck_names) == 0:
         showInfo("There are currently no remote decks.")
         return
 
     # Ask the user to select a deck
-    selection, okPressed = QInputDialog.getItem(
+    selection, ok_pressed = QInputDialog.getItem(
         mw,
         "Select a Deck to Unlink",
         "Select a deck to unlink:",
-        deckNames,
+        deck_names,
         0,
         False
     )
 
     # Remove the deck
-    if okPressed:
-        for key in list(remoteDecks.keys()):
-            if selection == remoteDecks[key]["deckName"]:
-                del remoteDecks[key]
+    if ok_pressed:
+        for key in list(remote_decks.keys()):
+            if selection == remote_decks[key]["deck_name"]:
+                del remote_decks[key]
                 break
 
         # Save the updated configuration

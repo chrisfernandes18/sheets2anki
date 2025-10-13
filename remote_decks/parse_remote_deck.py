@@ -1,17 +1,20 @@
 import csv
 import requests
-import re  # Import the 're' module for regular expressions
+import re
 
-class RemoteDeck:
-    def __init__(self):
-        self.deckName = ""
-        self.questions = []  # Keep using 'questions' attribute
-        self.media = []
+from typing import Union
 
-    def getMedia(self):
-        return self.media
+from .models.remote_deck import RemoteDeck
 
-def getRemoteDeck(url):
+def get_remote_deck(url: str, note_type_fields: list[str] = []) -> RemoteDeck:
+    """Fetches and parses a remote deck from a CSV URL.
+    
+    Args:
+        url (str): The URL of the CSV file.
+        note_type_fields (list[str], optional): List of fields in the note type. Defaults to [].
+    Returns:
+        RemoteDeck: The parsed remote deck.
+    """
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -20,15 +23,30 @@ def getRemoteDeck(url):
         raise Exception(f"Error downloading or reading the CSV: {e}")
 
     data = parse_csv_data(csv_data)
-    remoteDeck = build_remote_deck_from_csv(data)
-    return remoteDeck
+    remote_deck = build_remote_deck_from_csv(data)
+    return remote_deck
 
-def parse_csv_data(csv_data):
+def parse_csv_data(csv_data: Union[str, any]) -> list[list[str]]:
+    """Parses CSV data from a string.
+
+    Args:
+        csv_data (str or any): The CSV data as a string.
+    Returns:
+        list[list[str]]: Parsed CSV data as a list of rows, each row being a list of strings.
+    """
+    print("Parsing CSV data...")  # Debug message
     reader = csv.reader(csv_data.splitlines())
     data = list(reader)
     return data
 
-def build_remote_deck_from_csv(data):
+def build_remote_deck_from_csv(data: list[list[str]]) -> RemoteDeck:
+    """Builds a RemoteDeck object from parsed CSV data.
+    Args:
+        data (list[list[str]]): Parsed CSV data.
+    Returns:
+        RemoteDeck: The constructed RemoteDeck object.
+    """
+
     # Process headers to find indices of 'question', 'answer', and 'tags'
     headers = [h.strip().lower() for h in data[0]]
     print("Headers:", headers)  # Debug message
@@ -88,10 +106,10 @@ def build_remote_deck_from_csv(data):
         questions.append(question)
         print(f"Added question: {question_text}")  # Debug message
 
-    remoteDeck = RemoteDeck()
-    remoteDeck.deckName = "Deck from CSV"
-    remoteDeck.questions = questions  # Keep using 'questions' attribute
+    remote_deck = RemoteDeck()
+    remote_deck.deck_name = "Deck from CSV"
+    remote_deck.questions = questions  # Keep using 'questions' attribute
 
     print(f"Total questions added: {len(questions)}")  # Debug message
 
-    return remoteDeck
+    return remote_deck

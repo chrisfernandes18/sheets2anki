@@ -6,15 +6,13 @@
 
 - **Google Sheets as Source of Truth:**  
   Your published Google Sheet determines the cards present in Anki.  
-- **Supports Both Basic and Cloze Cards:**  
-  Automatically detects Cloze formatting (`{{c1::...}}`) in the question field for Cloze cards. Other questions become Basic cards.  
 - **Automatic Tag Assignment:**  
   If you have a `tags` column in your sheet, those tags will be assigned to the cards in Anki.  
 - **Deck Maintenance:**  
   - **Removed in Sheet → Removed in Anki:** If a card disappears from the sheet, it is removed from Anki on the next sync.
   - **Removed in Anki → Not Removed in Sheet:** There is **no reverse sync**. Deleting a card in Anki does not affect the sheet; the card may reappear if you sync again unless it’s removed from the sheet.
   
-**Important:** This add-on is in **beta** and currently supports only Basic and Cloze note types. Future updates may improve or extend functionality.
+**Important:** This add-on is in **beta**.
 
 ## No Reverse Sync & Deck Disconnection
 
@@ -34,7 +32,6 @@ Use this [example Google Sheets document](https://docs.google.com/spreadsheets/d
 - Just copy and paste: `question`, `answer`, and `tags` columns as needed.
 - Add Cloze-formatted questions (e.g., `{{c1::essential}}`) for Cloze cards.
 - After finalizing, publish the sheet as a CSV (File > Publish to the Web) and copy the CSV URL.
-
 
 ## Installation
 
@@ -66,7 +63,6 @@ Use this [example Google Sheets document](https://docs.google.com/spreadsheets/d
 - **Anki Version:** Compatible with Anki 2.1.x.
 - **Note Models Needed:**
   - **Basic:** Fields `Front` and `Back`.
-  - **Cloze:** Fields `Text` and `Extra`.
 
 Confirm these models exist before syncing.
 
@@ -76,8 +72,6 @@ Confirm these models exist before syncing.
   Check CSV headers (`question`, `answer`, `tags`) and ensure required note models exist.
 - **Changes Not Updating?**  
   Wait a few minutes after editing the sheet or verify the correct published CSV URL.
-- **Cloze Cards Not Forming?**  
-  Ensure Cloze syntax (`{{c1::...}}`) is correct and the Cloze model has `Text` and `Extra` fields, see Example Google Sheets Document above. 
 - **Cards Reappearing After Deletion in Anki?**  
   Remember there’s no reverse sync. Remove the card from the sheet if you want it gone permanently.
 

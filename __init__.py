@@ -1,15 +1,13 @@
 # Sheets2Anki Add-on
-# Author: Dr. Basti
-# Email: drbasti.co@gmail.com
 
 #import sys os
 import sys
 import os
 
-# Obtener la ruta absoluta del directorio actual (donde está __init__.py)
+# Obtain the absolute path of the current directory (where __init__.py is located)
 addon_path = os.path.dirname(__file__)
 
-# Agregar la carpeta 'libs' al sys.path
+# Add the 'libs' folder to sys.path
 libs_path = os.path.join(addon_path, 'remote_decks', 'libs')
 if libs_path not in sys.path:
     sys.path.insert(0, libs_path)
@@ -19,12 +17,11 @@ if libs_path not in sys.path:
 from aqt import mw
 from aqt.utils import showInfo, qconnect
 from aqt.qt import QAction, QMenu, QKeySequence
-from aqt.importing import ImportDialog
 
 try:
-    from .remote_decks.main import addNewDeck
-    from .remote_decks.main import syncDecks as sDecks
-    from .remote_decks.main import removeRemoteDeck as rDecks
+    from .remote_decks.main import add_new_deck
+    from .remote_decks.main import sync_decks as sDecks
+    from .remote_decks.main import remove_remote_deck as rDecks
     from .remote_decks.libs.org_to_anki.utils import getAnkiPluginConnector as getConnector
 except Exception as e:
     showInfo(f"Error importing modules from the sheets2anki plugin:\n{e}")
@@ -40,11 +37,12 @@ If you want me to fix it, please report it here: https://github.com/sebastianpae
 Make sure to provide as much information as possible, especially the file that caused the error.
 """
 
-def addDeck():
+def add_deck():
+    """Function to add a new remote deck."""
     try:
         ankiBridge = getConnector()
         ankiBridge.startEditing()
-        addNewDeck()
+        add_new_deck()
     except Exception as e:
         errorMessage = str(e)
         showInfo(errorTemplate.format(errorMessage))
@@ -55,7 +53,8 @@ def addDeck():
     finally:
         ankiBridge.stopEditing()
 
-def syncDecks():
+def sync_decks():
+    """Function to sync remote decks."""
     try:
         ankiBridge = getConnector()
         ankiBridge.startEditing()
@@ -71,7 +70,8 @@ def syncDecks():
         showInfo("Synchronization complete")
         ankiBridge.stopEditing()
 
-def removeRemote():
+def remove_remote():
+    """Function to remove a remote deck."""
     try:
         ankiBridge = getConnector()
         ankiBridge.startEditing()
@@ -86,25 +86,25 @@ def removeRemote():
     finally:
         ankiBridge.stopEditing()
 
-# Verificar que mw no sea None antes de agregar acciones al menú
+# Confirm that mw is not None before adding new action to the menu
 if mw is not None:
     remoteDecksSubMenu = QMenu("Manage sheets2anki Decks", mw)
     mw.form.menuTools.addMenu(remoteDecksSubMenu)
 
-    # Añadir acción para "Agregar nuevo mazo remoto"
+    # Add action to "Add New Remote Deck"
     remoteDeckAction = QAction("Add New sheets2anki Remote Deck", mw)
     remoteDeckAction.setShortcut(QKeySequence("Ctrl+Shift+A"))
-    qconnect(remoteDeckAction.triggered, addDeck)
+    qconnect(remoteDeckAction.triggered, add_deck)
     remoteDecksSubMenu.addAction(remoteDeckAction)
 
-    # Acción para "Sincronizar mazos remotos"
+    # Action to "Sync remote Decks"
     syncDecksAction = QAction("Sync Decks", mw)
     syncDecksAction.setShortcut(QKeySequence("Ctrl+Shift+S"))
-    qconnect(syncDecksAction.triggered, syncDecks)
+    qconnect(syncDecksAction.triggered, sync_decks)
     remoteDecksSubMenu.addAction(syncDecksAction)
 
-    # Acción para "Eliminar mazo remoto"
-    removeRemoteDeck = QAction("Disconnect a remote Deck", mw)
-    removeRemoteDeck.setShortcut(QKeySequence("Ctrl+Shift+D"))
-    qconnect(removeRemoteDeck.triggered, removeRemote)
-    remoteDecksSubMenu.addAction(removeRemoteDeck)
+    # Action to "Disconnect a remote Deck"
+    remove_remote_deck = QAction("Disconnect a remote Deck", mw)
+    remove_remote_deck.setShortcut(QKeySequence("Ctrl+Shift+D"))
+    qconnect(remove_remote_deck.triggered, remove_remote)
+    remoteDecksSubMenu.addAction(remove_remote_deck)
