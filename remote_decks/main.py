@@ -4,6 +4,7 @@ from aqt.utils import showInfo
 from aqt.qt import QInputDialog, QLineEdit
 
 from .models.remote_deck import RemoteDeck
+from .models.remote_deck_config import RemoteDeckConfig
 
 try:
     echo_mode_normal = QLineEdit.EchoMode.Normal
@@ -22,13 +23,20 @@ def sync_decks():
     for deck_key in config["remote-decks"].keys():
         try:
             current_remote_info = config["remote-decks"][deck_key]
-            deck_name = current_remote_info["deck_name"]
-            remote_deck = get_remote_deck(current_remote_info["url"])
-            remote_deck.deck_name = deck_name
-            deck_id = get_or_create_deck(col, deck_name)
-            create_or_update_notes(col, remote_deck, deck_id)
+
+            remote_deck_config = RemoteDeckConfig()
+            remote_deck_config.url = current_remote_info["url"]
+            remote_deck_config.deck_name = current_remote_info["deck_name"]
+            remote_deck_config.note_type = current_remote_info["note_type"]
+            remote_deck_config.note_type_fields = current_remote_info["note_type_fields"]
+            remote_deck_config.notecard_key_field = current_remote_info["notecard_key_field"]
+
+            remote_deck = get_remote_deck(current_remote_info["url"], remote_deck_config.note_type, remote_deck_config.note_type_fields)
+            remote_deck.deck_name = remote_deck_config.deck_name
+            deck_id = get_or_create_deck(col, remote_deck_config.deck_name)
+            create_or_update_notes(col, remote_deck, deck_id, remote_deck_config.note_type, remote_deck_config.notecard_key_field)
         except Exception as e:
-            deck_message = f"\nThe following deck failed to sync: {deck_name}"
+            deck_message = f"\nThe following deck failed to sync: {remote_deck_config.deck_name}"
             showInfo(str(e) + deck_message)
             raise
 
@@ -49,57 +57,65 @@ def get_or_create_deck(col: Collection, deck_name: str) -> int:
         deck_id = deck["id"]
     return deck_id
 
-def create_or_update_notes(col: Collection, remote_deck: RemoteDeck, deck_id: int) -> None:
+def create_or_update_notes(
+    col: Collection, 
+    remote_deck: RemoteDeck, 
+    deck_id: int, 
+    note_type_name: str, 
+    notecard_key_field: str
+) -> None:
     """Create or update notes in the Anki collection based on the remote deck.
     Args:
         col (Collection): The Anki collection.
-        remote_deck (RemoteDeck): The remote deck containing questions and answers.
+        remote_deck (RemoteDeck): The remote deck containing notecards.
         deck_id (int): The ID of the deck where notes will be added or updated.
+        note_type_name (str): The name of the note type to use.
+        notecard_key_field (str): The field used as a unique key for notecards
     """
 
     # Dictionaries for existing notes
     existing_notes = {}
     existing_note_ids = {}
 
+    notes = col.find_notes(f'deck:"{remote_deck.deck_name}"')
+
     # Fetch existing notes in the deck
-    for nid in col.find_notes(f'deck:"{remote_deck.deck_name}"'):
+    for nid in notes:
         note = col.get_note(nid)
-        # Determine the key based on available fields
-        if "Text" in note:
-            key = note["Text"]
-        elif "Front" in note:
-            key = note["Front"]
+        key = ''
+        
+        # Use the specified key field to identify notes
+        if notecard_key_field in note:
+            key = note[notecard_key_field]
         else:
-            continue  # Skip notes without 'Text' or 'Front' fields
+            continue  # Skip notes without the specified key field
         existing_notes[key] = note
         existing_note_ids[key] = nid
 
     # Set to keep track of keys from Google Sheets
     gs_keys = set()
 
-    for question in remote_deck.questions:
-        card_type = question['type']
-        fields = question['fields']
-        tags = question.get('tags', [])
+    for notecard in remote_deck.notecards:
+        card_type = notecard['type']
+        fields = notecard['fields']
+        tags = notecard.get('tags', [])
 
-        if card_type == 'Basic':
-            key = fields['Front']
+        try:
+            key = fields[notecard_key_field]
             gs_keys.add(key)
-            back = fields.get('Back', '')
 
             if key in existing_notes:
                 # Update existing note
                 note = existing_notes[key]
-                note["Front"] = key
-                note["Back"] = back
+                for field_name, value in fields.items():
+                    note[field_name] = value
                 note.tags = tags
                 note.flush()
             else:
                 # Create new note
-                model_name = "Basic"
-                model = col.models.by_name(model_name)
+                model = col.models.by_name(note_type_name)
                 if model is None:
-                    showInfo("The 'Basic' model does not exist. Please create a Basic model in Anki.")
+                    showInfo(f"The {note_type_name} model does not exist. Please create a {note_type_name} model in Anki.")
                     continue
 
                 col.models.set_current(model)
@@ -107,13 +123,14 @@ def create_or_update_notes(col: Collection, remote_deck: RemoteDeck, deck_id: in
                 col.models.save(model)
 
                 note = col.new_note(model)
-                note["Front"] = key
-                note["Back"] = back
+                for field_name, value in fields.items():
+                    note[field_name] = value
                 note.tags = tags
                 col.add_note(note, deck_id)
-        else:
-            showInfo(f"Unknown card type '{card_type}' for card '{key}'. Skipping.")
-            continue
+    
+        except Exception as e:
+            showInfo(f"Unknown card type '{card_type}' for card '{key}', with error: {e}.\nSkipping.")
+            continue    
 
     # Find notes that are in Anki but not in Google Sheets
     anki_keys = set(existing_notes.keys())
@@ -137,6 +154,10 @@ def add_new_deck() -> None:
 
     url = url.strip()
 
+    if "output=csv" not in url:
+        showInfo("The provided URL does not appear to be a published CSV from Google Sheets.")
+        return
+
     deck_name, ok_pressed = QInputDialog.getText(
         mw, "Deck Name", "Enter the name of the deck:", echo_mode_normal, ""
     )
@@ -146,8 +167,6 @@ def add_new_deck() -> None:
 
     note_type_name_to_id = {item.name: item.id for item in names_and_ids}
     note_type_names = list(note_type_name_to_id.keys())
-
-    showInfo(f"note_type_name_to_id: {note_type_name_to_id}")
 
     note_type_name, ok_pressed = QInputDialog.getItem(
         mw,
@@ -160,11 +179,22 @@ def add_new_deck() -> None:
 
     if not ok_pressed or not note_type_name.strip():
         note_type_name = "Basic"
+    
     note_type_fields = [field['name'] for field in mw.col.models.get(note_type_name_to_id[note_type_name])['flds']]
 
-    if "output=csv" not in url:
-        showInfo("The provided URL does not appear to be a published CSV from Google Sheets.")
-        return
+    notecard_key_field, ok_pressed = QInputDialog.getItem(
+        mw,
+        "Select a Notecard Key Field",
+        "Select a key field for the notecards:",
+        note_type_fields,
+        0,
+        False
+    )
+
+    if not ok_pressed or not notecard_key_field.strip():
+        notecard_key_field = note_type_fields[0]
+
+    showInfo(f"Selected note type: {note_type_name} with default key field: {notecard_key_field}")
 
     config = mw.addonManager.getConfig(__name__)
     if not config:
@@ -175,13 +205,19 @@ def add_new_deck() -> None:
         return
 
     try:
-        deck = get_remote_deck(url, note_type_fields)
+        deck = get_remote_deck(url, note_type_name, note_type_fields)
         deck.deck_name = deck_name
     except Exception as e:
         showInfo(f"Error fetching the remote deck:\n{e}")
         return
 
-    config["remote-decks"][url] = {"url": url, "deck_name": deck_name}
+    config["remote-decks"][url] = {
+        "url": url, 
+        "deck_name": deck_name, 
+        "note_type": note_type_name, 
+        "note_type_fields": note_type_fields, 
+        "notecard_key_field": notecard_key_field
+    }
     mw.addonManager.writeConfig(__name__, config)
     sync_decks()
 

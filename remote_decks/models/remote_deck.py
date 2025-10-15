@@ -1,7 +1,7 @@
 class RemoteDeck:
     def __init__(self):
         self.deck_name: str = ""
-        self.questions = []
+        self.notecards = []
         self.media = []
 
     def get_media(self):

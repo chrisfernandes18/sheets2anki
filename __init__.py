@@ -44,6 +44,7 @@ def add_deck():
         ankiBridge.startEditing()
         add_new_deck()
     except Exception as e:
+        print(f"Error in add_deck: {e.with_traceback()}")  # Debug message
         errorMessage = str(e)
         showInfo(errorTemplate.format(errorMessage))
         if ankiBridge.getConfig().get("debug", False):
