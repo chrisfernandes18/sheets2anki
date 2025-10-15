@@ -4,39 +4,39 @@
 
 ## Features
 
-- **Google Sheets as Source of Truth:**  
-  Your published Google Sheet determines the cards present in Anki.  
-- **Automatic Tag Assignment:**  
-  If you have a `tags` column in your sheet, those tags will be assigned to the cards in Anki.  
-- **Deck Maintenance:**  
+- **Google Sheets as Source of Truth:**
+  Your published Google Sheet determines the cards present in Anki.
+- **Automatic Tag Assignment:**
+  If you have a `tags` column in your sheet, those tags will be assigned to the cards in Anki.
+- **Deck Maintenance:**
   - **Removed in Sheet → Removed in Anki:** If a card disappears from the sheet, it is removed from Anki on the next sync.
   - **Removed in Anki → Not Removed in Sheet:** There is **no reverse sync**. Deleting a card in Anki does not affect the sheet; the card may reappear if you sync again unless it’s removed from the sheet.
-  
+
 **Important:** This add-on is in **beta**.
 
 ## No Reverse Sync & Deck Disconnection
 
-- **No Reverse Sync:**  
+- **No Reverse Sync:**
   All changes flow from Google Sheets to Anki. If you delete or modify a card in Anki, it will not update the sheet. To permanently remove a card, remove it from the sheet before syncing again.
-  
+
 - **Syncing vs. Disconnecting a Remote Deck:**
-  - **Sync Once and Disconnect:**  
+  - **Sync Once and Disconnect:**
     You can sync a deck once, and then if you prefer to manage cards locally without further remote updates, go to `Tools > Manage Remote Deck > Disconnect Remote Deck`. This "unlinks" Anki from the sheet. The local deck remains and can be edited freely in Anki as a normal deck.
-  - **Continuous Syncing:**  
+  - **Continuous Syncing:**
     Alternatively, you can keep the deck connected and continue updating your Google Sheets document. Upon each sync, Anki updates to match the sheet. If you want a card gone, you must remove it from the sheet, as deletions in Anki alone won't persist after a resync.
 
 ## Example Google Sheets Document
 
-Use this [example Google Sheets document](https://docs.google.com/spreadsheets/d/1S97fZkuw1DctJhBB1yaiWiSh5grmNmY9Gp8KVPCpMfU/edit?usp=sharing) as a starting template.  
+Use this [example Google Sheets document](https://docs.google.com/spreadsheets/d/1S97fZkuw1DctJhBB1yaiWiSh5grmNmY9Gp8KVPCpMfU/edit?usp=sharing) as a starting template.
 ![imagen](https://github.com/user-attachments/assets/a030ddd0-5dae-483b-bde2-32f20ed0e245)
+
 - Just copy and paste: `question`, `answer`, and `tags` columns as needed.
-- Add Cloze-formatted questions (e.g., `{{c1::essential}}`) for Cloze cards.
 - After finalizing, publish the sheet as a CSV (File > Publish to the Web) and copy the CSV URL.
 
 ## Installation
 
 1. **Download the `.ankiaddon` File:**
-   - Go to the [Releases](https://github.com/your-username/sheets2anki/releases) page of this repository.
+   - Go to the [Releases](https://github.com/chrisfernandes18/sheets2anki/releases) page of this repository.
    - Download the latest `.ankiaddon`.
 
 2. **Install in Anki:**
@@ -68,47 +68,13 @@ Confirm these models exist before syncing.
 
 ## Troubleshooting
 
-- **No Cards Imported?**  
+- **No Cards Imported?**
   Check CSV headers (`question`, `answer`, `tags`) and ensure required note models exist.
-- **Changes Not Updating?**  
+- **Changes Not Updating?**
   Wait a few minutes after editing the sheet or verify the correct published CSV URL.
-- **Cards Reappearing After Deletion in Anki?**  
+- **Cards Reappearing After Deletion in Anki?**
   Remember there’s no reverse sync. Remove the card from the sheet if you want it gone permanently.
 
 ## Beta Status and Future Plans
 
 Sheets2Anki is in beta. Basic and Cloze types are supported now, but more features and improvements may follow as the project evolves. Keep an eye on this repository for updates.
-
-## Local Development
-
-### Pre-requirements
-
-1. `python` installed.
-
-2. `pipenv` installed.
-
-### Setup
-
-#### Install Dependencies
-
-```sh
-make install
-```
-
-Should install all the necessary libraries.
-
-#### Running code locally
-
-1. Locate where your Anki add-ons are installed. On macOS this would be at the path `/Users/$($USER)/Library/Application\ Support/Anki2/addons21/`. This is where you can run the following command to copy the files right now into an addon of a given ID.
-
-    ```sh
-    make update-addon USER=test ID=12345678910
-    ```
-
-2. When debugging I use two methods. Either using the function `showInfo` to open up a pop-up window or [following these instructions](https://addon-docs.ankiweb.net/console-output.html) I run in a terminal, which will open up Anki, but also print out stdout messages from within the code.
-
-    ```sh
-    /Applications/Anki.app/Contents/MacOS/launcher
-    ```
-
-3. Other methods, are using the `if __name__ == "__main__"` within files and run the file name to be able to test helper functions.

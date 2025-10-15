@@ -1,7 +1,7 @@
-from aqt import mw
 from anki.collection import Collection
-from aqt.utils import showInfo
+from aqt import mw
 from aqt.qt import QInputDialog, QLineEdit
+from aqt.utils import showInfo
 
 from .models.remote_deck import RemoteDeck
 from .models.remote_deck_config import RemoteDeckConfig
@@ -12,6 +12,7 @@ except AttributeError:
     echo_mode_normal = QLineEdit.Normal
 
 from .parse_remote_deck import get_remote_deck
+
 
 def sync_decks():
     """Function to sync remote decks."""
@@ -28,19 +29,36 @@ def sync_decks():
             remote_deck_config.url = current_remote_info["url"]
             remote_deck_config.deck_name = current_remote_info["deck_name"]
             remote_deck_config.note_type = current_remote_info["note_type"]
-            remote_deck_config.note_type_fields = current_remote_info["note_type_fields"]
-            remote_deck_config.notecard_key_field = current_remote_info["notecard_key_field"]
+            remote_deck_config.note_type_fields = current_remote_info[
+                "note_type_fields"
+            ]
+            remote_deck_config.notecard_key_field = current_remote_info[
+                "notecard_key_field"
+            ]
 
-            remote_deck = get_remote_deck(current_remote_info["url"], remote_deck_config.note_type, remote_deck_config.note_type_fields)
+            remote_deck = get_remote_deck(
+                current_remote_info["url"],
+                remote_deck_config.note_type,
+                remote_deck_config.note_type_fields,
+            )
             remote_deck.deck_name = remote_deck_config.deck_name
             deck_id = get_or_create_deck(col, remote_deck_config.deck_name)
-            create_or_update_notes(col, remote_deck, deck_id, remote_deck_config.note_type, remote_deck_config.notecard_key_field)
+            create_or_update_notes(
+                col,
+                remote_deck,
+                deck_id,
+                remote_deck_config.note_type,
+                remote_deck_config.notecard_key_field,
+            )
         except Exception as e:
-            deck_message = f"\nThe following deck failed to sync: {remote_deck_config.deck_name}"
+            deck_message = (
+                f"\nThe following deck failed to sync: {remote_deck_config.deck_name}"
+            )
             showInfo(str(e) + deck_message)
             raise
 
     showInfo("Synchronization complete")
+
 
 def get_or_create_deck(col: Collection, deck_name: str) -> int:
     """Get or create a deck by name and return its ID.
@@ -57,12 +75,13 @@ def get_or_create_deck(col: Collection, deck_name: str) -> int:
         deck_id = deck["id"]
     return deck_id
 
+
 def create_or_update_notes(
-    col: Collection, 
-    remote_deck: RemoteDeck, 
-    deck_id: int, 
-    note_type_name: str, 
-    notecard_key_field: str
+    col: Collection,
+    remote_deck: RemoteDeck,
+    deck_id: int,
+    note_type_name: str,
+    notecard_key_field: str,
 ) -> None:
     """Create or update notes in the Anki collection based on the remote deck.
     Args:
@@ -82,8 +101,8 @@ def create_or_update_notes(
     # Fetch existing notes in the deck
     for nid in notes:
         note = col.get_note(nid)
-        key = ''
-        
+        key = ""
+
         # Use the specified key field to identify notes
         if notecard_key_field in note:
             key = note[notecard_key_field]
@@ -96,9 +115,9 @@ def create_or_update_notes(
     gs_keys = set()
 
     for notecard in remote_deck.notecards:
-        card_type = notecard['type']
-        fields = notecard['fields']
-        tags = notecard.get('tags', [])
+        card_type = notecard["type"]
+        fields = notecard["fields"]
+        tags = notecard.get("tags", [])
 
         try:
             key = fields[notecard_key_field]
@@ -115,11 +134,13 @@ def create_or_update_notes(
                 # Create new note
                 model = col.models.by_name(note_type_name)
                 if model is None:
-                    showInfo(f"The {note_type_name} model does not exist. Please create a {note_type_name} model in Anki.")
+                    showInfo(
+                        f"The {note_type_name} model does not exist. Please create a {note_type_name} model in Anki."
+                    )
                     continue
 
                 col.models.set_current(model)
-                model['did'] = deck_id
+                model["did"] = deck_id
                 col.models.save(model)
 
                 note = col.new_note(model)
@@ -127,10 +148,12 @@ def create_or_update_notes(
                     note[field_name] = value
                 note.tags = tags
                 col.add_note(note, deck_id)
-    
+
         except Exception as e:
-            showInfo(f"Unknown card type '{card_type}' for card '{key}', with error: {e}.\nSkipping.")
-            continue    
+            showInfo(
+                f"Unknown card type '{card_type}' for card '{key}', with error: {e}.\nSkipping."
+            )
+            continue
 
     # Find notes that are in Anki but not in Google Sheets
     anki_keys = set(existing_notes.keys())
@@ -144,6 +167,7 @@ def create_or_update_notes(
     # Save changes
     col.save()
 
+
 def add_new_deck() -> None:
     """Function to add a new remote deck."""
     url, ok_pressed = QInputDialog.getText(
@@ -155,7 +179,9 @@ def add_new_deck() -> None:
     url = url.strip()
 
     if "output=csv" not in url:
-        showInfo("The provided URL does not appear to be a published CSV from Google Sheets.")
+        showInfo(
+            "The provided URL does not appear to be a published CSV from Google Sheets."
+        )
         return
 
     deck_name, ok_pressed = QInputDialog.getText(
@@ -170,31 +196,38 @@ def add_new_deck() -> None:
 
     note_type_name, ok_pressed = QInputDialog.getItem(
         mw,
-        "Select a Note Type to map the deck to",
+        "Select a Note Type to map the notecards to",
         "Select a note type:",
         note_type_names,
         0,
-        False
+        False,
     )
 
     if not ok_pressed or not note_type_name.strip():
         note_type_name = "Basic"
-    
-    note_type_fields = [field['name'] for field in mw.col.models.get(note_type_name_to_id[note_type_name])['flds']]
+
+    note_type_fields = [
+        field["name"]
+        for field in mw.col.models.get(note_type_name_to_id[note_type_name])["flds"]
+    ]
+
+    note_type_fields = list(filter(lambda x: x != "Cloze", note_type_fields))
 
     notecard_key_field, ok_pressed = QInputDialog.getItem(
         mw,
         "Select a Notecard Key Field",
-        "Select a key field for the notecards:",
+        "Select a primary key field for the notecards:",
         note_type_fields,
         0,
-        False
+        False,
     )
 
     if not ok_pressed or not notecard_key_field.strip():
         notecard_key_field = note_type_fields[0]
 
-    showInfo(f"Selected note type: {note_type_name} with default key field: {notecard_key_field}")
+    showInfo(
+        f"Selected note type:\n\n{note_type_name}\n\nwith default key field:\n\n{notecard_key_field}"
+    )
 
     config = mw.addonManager.getConfig(__name__)
     if not config:
@@ -212,14 +245,16 @@ def add_new_deck() -> None:
         return
 
     config["remote-decks"][url] = {
-        "url": url, 
-        "deck_name": deck_name, 
-        "note_type": note_type_name, 
-        "note_type_fields": note_type_fields, 
-        "notecard_key_field": notecard_key_field
+        "url": url,
+        "deck_name": deck_name,
+        "note_type": note_type_name,
+        "note_type_fields": note_type_fields,
+        "notecard_key_field": notecard_key_field,
     }
+
     mw.addonManager.writeConfig(__name__, config)
     sync_decks()
+
 
 def remove_remote_deck() -> None:
     """Function to remove a remote deck."""
@@ -240,12 +275,7 @@ def remove_remote_deck() -> None:
 
     # Ask the user to select a deck
     selection, ok_pressed = QInputDialog.getItem(
-        mw,
-        "Select a Deck to Unlink",
-        "Select a deck to unlink:",
-        deck_names,
-        0,
-        False
+        mw, "Select a Deck to Unlink", "Select a deck to unlink:", deck_names, 0, False
     )
 
     # Remove the deck

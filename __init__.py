@@ -1,28 +1,30 @@
-# Sheets2Anki Add-on
+"""sheets2anki Anki Add-on
+This is the main entry point for the sheets2anki Anki add-on. It sets up the add-on by importing necessary modules,
+configuring paths, and defining functions to handle user interactions such as adding new decks, syncing decks, and removing decks.
+"""
 
-#import sys os
-import sys
 import os
+import sys
+
+from aqt import mw
+from aqt.qt import QAction, QKeySequence, QMenu
+from aqt.utils import qconnect, showInfo
 
 # Obtain the absolute path of the current directory (where __init__.py is located)
 addon_path = os.path.dirname(__file__)
 
 # Add the 'libs' folder to sys.path
-libs_path = os.path.join(addon_path, 'remote_decks', 'libs')
+libs_path = os.path.join(addon_path, "remote_decks", "libs")
 if libs_path not in sys.path:
     sys.path.insert(0, libs_path)
-    
-# Anki integration class
-
-from aqt import mw
-from aqt.utils import showInfo, qconnect
-from aqt.qt import QAction, QMenu, QKeySequence
 
 try:
+    from .remote_decks.libs.org_to_anki.utils import (
+        getAnkiPluginConnector as getConnector,
+    )
     from .remote_decks.main import add_new_deck
-    from .remote_decks.main import sync_decks as sDecks
     from .remote_decks.main import remove_remote_deck as rDecks
-    from .remote_decks.libs.org_to_anki.utils import getAnkiPluginConnector as getConnector
+    from .remote_decks.main import sync_decks as sDecks
 except Exception as e:
     showInfo(f"Error importing modules from the sheets2anki plugin:\n{e}")
     raise
@@ -37,6 +39,7 @@ If you want me to fix it, please report it here: https://github.com/sebastianpae
 Make sure to provide as much information as possible, especially the file that caused the error.
 """
 
+
 def add_deck():
     """Function to add a new remote deck."""
     try:
@@ -49,10 +52,12 @@ def add_deck():
         showInfo(errorTemplate.format(errorMessage))
         if ankiBridge.getConfig().get("debug", False):
             import traceback
+
             trace = traceback.format_exc()
             showInfo(str(trace))
     finally:
         ankiBridge.stopEditing()
+
 
 def sync_decks():
     """Function to sync remote decks."""
@@ -65,11 +70,13 @@ def sync_decks():
         showInfo(errorTemplate.format(errorMessage))
         if ankiBridge.getConfig().get("debug", False):
             import traceback
+
             trace = traceback.format_exc()
             showInfo(str(trace))
     finally:
         showInfo("Synchronization complete")
         ankiBridge.stopEditing()
+
 
 def remove_remote():
     """Function to remove a remote deck."""
@@ -82,10 +89,12 @@ def remove_remote():
         showInfo(errorTemplate.format(errorMessage))
         if ankiBridge.getConfig().get("debug", False):
             import traceback
+
             trace = traceback.format_exc()
             showInfo(str(trace))
     finally:
         ankiBridge.stopEditing()
+
 
 # Confirm that mw is not None before adding new action to the menu
 if mw is not None:
