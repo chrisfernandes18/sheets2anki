@@ -1,0 +1,9 @@
+{
+  "package": "1871608122",
+  "name": "sheets2anki",
+  "version": "0.0.1",
+  "author": "chrisfernandes18",
+  "description": "Synchronize Anki decks with Google Sheets published as CSV.",
+  "license": "MIT",
+  "url": "https://github.com/chrisfernandes18/sheets2anki"
+}
